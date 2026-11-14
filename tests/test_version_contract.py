@@ -29,7 +29,7 @@ class PublicVersionContractTests(unittest.TestCase):
 
     def test_readme_version_drift_fails_closed(self):
         path = self.root / 'README.md'
-        path.write_text(path.read_text().replace('**Version:** 0.1.1', '**Version:** 0.2.0', 1))
+        path.write_text(path.read_text().replace('**Version:** 0.1.0', '**Version:** 0.2.0', 1))
         result = self.run_check()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Version drift', result.stderr)

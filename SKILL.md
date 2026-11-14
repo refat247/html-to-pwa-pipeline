@@ -2,12 +2,12 @@
 name: html-to-pwa-pipeline
 description: Audit, convert, test, package, and prepare a static HTML project as an installable Progressive Web App with privacy-safe assets, offline behavior and version-governed delivery. Use for HTML-to-PWA conversion, mobile offline debugging, PWA packaging, Firebase Hosting preparation, origin/persistence audits, or PWA release reviews. Never deploy or merge by default.
 metadata:
-  version: 0.1.1
+  version: 0.1.0
 ---
 
 # HTML-to-PWA Pipeline
 
-**Version:** 0.1.1 — experimental draft, NOT independently audited or installed.
+**Version:** 0.1.0 — experimental draft, NOT independently audited or installed.
 
 ## Operating contract
 
@@ -24,7 +24,7 @@ Modes: `AUDIT_ONLY` (default for review requests), `CONVERT` (safe-copy static s
 5. **Verify** with `python scripts/verify_dist.py build/dist`. Review the privacy audit, generated file manifest and data-storage plan. A successful file copy does not demonstrate installation, offline readiness, storage persistence, browser compatibility or security.
 6. **Test** in real HTTP(S) origin with Chromium/Playwright where available: two-tab same-origin save/reopen, localStorage/IndexedDB failure, malformed import, first-run empty state, correct cache updates, offline refresh, 320/390/768/1366 viewport layout, keyboard+dialog and no browser downloads on every edit. If browser testing unavailable, mark UNVERIFIED. Physical Android/iOS real-device acceptance remains a separate gate. Read `references/acceptance-matrix.md`.
 7. **Prepare hosting** with explicit HTTPS origin, not shared-host paths for sensitive storage. Offer Firebase Hosting, GitHub Pages (public-only data) or existing hosting as an **option**; do not assume deploy access. See `references/hosting.md`. Deploy only a reviewed allowlist directory, never private backups.
-8. **Govern versions** under canonical [`version-manager`](https://github.com/refat247/medical-cdss-skills/tree/main/version-manager): inspect, classify MAJOR/MINOR/PATCH, dry run, synchronize all current declarations in SKILL.md, `agents/openai.yaml`, README, CHANGELOG, scripts/tests as applicable, run `--verify` (zero declarations is failure) in a trusted environment with canonical-manager access, review tests, prepare focused PR and require owner-controlled merge. CI checks out the public canonical Version Manager v1.3.0 at an exact pinned Git commit and runs its original `--inspect` and `--verify`; the local declaration checker remains defense-in-depth. CI presence alone is not proof of successful execution: inspect the job logs and exact HEAD. Source edits, successful package QA, GitHub sync, installation and runtime smoke are DIFFERENT statuses.
+8. **Govern versions** under canonical [`version-manager`](https://github.com/refat247/medical-cdss-skills/tree/main/version-manager): inspect, classify MAJOR/MINOR/PATCH, dry run, synchronize all current declarations in SKILL.md, `agents/openai.yaml`, README, CHANGELOG, scripts/tests as applicable, run `--verify` (zero declarations is failure) in a trusted environment with canonical-manager access, review tests, prepare focused PR and require owner-controlled merge. Public CI can run `scripts/check_version_contract.py`, but that independent drift check is NOT proof the private canonical Version Manager CLI executed. Source edits, successful package QA, GitHub sync, installation and runtime smoke are DIFFERENT statuses.
 9. **Audit/re-audit** against reproducible evidence, with independent reviewer on risky changes, and record exact reviewer, timestamp, baseline SHA, environment, PASS/FAIL/PARTIAL/UNVERIFIED, pending blockers, costs and next cursor. Read back any tracker write. No invented acceptance, subscriptions, test results or future deliverables.
 
 ## Invocation routing
@@ -42,7 +42,7 @@ Modes: `AUDIT_ONLY` (default for review requests), `CONVERT` (safe-copy static s
 
 ## Compatibility boundaries
 
-This v0.1.1 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
+This v0.1.0 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
 
 ## References
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Independent, public-safe SemVer drift check; not the canonical Version Manager.
+"""Independent, public-safe SemVer drift check; NOT the private canonical Version Manager.
 
-CI separately executes the public canonical version-manager v1.3.0 from a pinned commit.
+Use canonical version-manager v1.3.0 in an authorized environment before merge.
 This checker exists so public PR CI does not need a private repository access token.
 """
 from __future__ import annotations
