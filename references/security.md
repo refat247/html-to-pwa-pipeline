@@ -7,3 +7,7 @@
 - Export a private backup and verify import/recovery on disposable synthetic data before any real records. Preserve original account data; a wrong import may overwrite it.
 - Do not cache responses from API/auth endpoints by default, nor embed tokens in service workers. Do not log private user data into CI or Notion.
 - Security scanner is heuristic. Passing it is not an independent penetration test. A manually reviewed threat model and external dependency audit remain required.
+
+## Independent Grok Build 14 November 2026 review follow-up
+
+The initial v0.1.0 review was REQUEST_CHANGES: unchanged workers on asset-only builds, stale sibling cache cleanup, nav cache clobber, unsafe SVG documents, invalid inline HTML insertion, and incomplete JS dependency census. v0.2.0 introduces fail-closed handling and regression tests, but independent re-audit of the latest PR SHA is mandatory. Do not infer a whole-program security proof from regex-based static inspection. Incompatible CSP and active SVG require explicit manual remediation rather than silent sanitization.

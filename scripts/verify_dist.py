@@ -6,15 +6,23 @@ import struct
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
-from pwa_core import EMAIL_RE,SECRET_RE,suspicious_path,safe_local
+from pwa_core import EMAIL_RE,SECRET_RE,suspicious_path,safe_local,cache_token
 
 class DistParser(HTMLParser):
-    def __init__(self):super().__init__();self.refs=[]
+    def __init__(self):super().__init__();self.refs=[];self.head=False;self.manifest_links=[];self.script=False;self.inline_scripts=[]
     def handle_starttag(self,tag,attrs):
         d=dict(attrs)
+        if tag=='head':self.head=True
+        if tag=='script':self.script=True
+        if tag=='link' and self.head and 'manifest' in d.get('rel','').lower().split():self.manifest_links.append(d.get('href'))
         for n in ('href','src','poster'):
             if n in d and tag in ('link','script','img','source','video'):
                 self.refs.append(d[n])
+    def handle_endtag(self,tag):
+        if tag=='head':self.head=False
+        if tag=='script':self.script=False
+    def handle_data(self,data):
+        if self.script:self.inline_scripts.append(data)
 
 
 def verify(root:Path):
@@ -31,13 +39,24 @@ def verify(root:Path):
         p=root/f'icon-{size}.png';b=p.read_bytes()
         if not b.startswith(b'\x89PNG\r\n\x1a\n') or len(b)<24 or struct.unpack('>II',b[16:24])!=(size,size):errs.append('Icon invalid size '+str(size))
     html=(root/'index.html').read_text('utf-8')
-    if 'manifest.webmanifest' not in html or "serviceWorker.register('./sw.js')" not in html:errs.append('HTML lacks manifest or worker link')
     parsed=DistParser();parsed.feed(html)
+    if parsed.manifest_links!=['./manifest.webmanifest']:
+        errs.append('HTML lacks exactly one real manifest link in head')
+    registrar='\n'.join(parsed.inline_scripts)
+    if "navigator.serviceWorker.register('./sw.js')" not in registrar:
+        errs.append('HTML lacks a real inline Service Worker registrar')
     for ref in parsed.refs:
         status,p=safe_local(ref,root,root)
         if status not in ('local','external','inline'):errs.append('Invalid asset reference '+ref+': '+status)
     worker=(root/'sw.js').read_text('utf-8')
     import re
+    if 'CACHE_PREFIX=' not in worker or 'url.pathname!==SHELL_PATH' not in worker:
+        errs.append('Worker must scope cache cleanup and navigation handling')
+    if "c.put('./index.html'" in worker or "cache.put('./index.html'" in worker:
+        errs.append('Worker must not cache arbitrary network navigation as shell')
+    expected_token=cache_token({p.relative_to(root).as_posix():p for p in root.rglob('*') if p.is_file() and p.name!='sw.js'})
+    if f"CACHE=CACHE_PREFIX+'{expected_token}'" not in worker:
+        errs.append('Worker cache version does not match public asset bytes')
     precache=re.search(r'const PRECACHE=(\[[^;]+\]);',worker)
     if not precache:errs.append('Service worker precache list missing')
     else:
@@ -53,6 +72,7 @@ def verify(root:Path):
         if not p.is_file():continue
         rel=p.relative_to(root)
         if suspicious_path(rel):errs.append('Sensitive filename in dist: '+str(rel))
+        if p.is_symlink() or p.suffix.lower()=='.svg':errs.append('Active SVG or symlink forbidden in dist: '+str(rel))
         if p.suffix.lower() in ('.html','.htm','.js','.css','.json','.webmanifest'):
             t=p.read_text('utf-8',errors='replace')
             if EMAIL_RE.search(t) or SECRET_RE.search(t):errs.append('Sensitive-looking content in '+str(rel))

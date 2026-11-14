@@ -12,6 +12,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as BrowserTimeout,
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('url',help='Localhost URL served from generated dist root')
+    parser.add_argument('--dist',type=Path,help='Disposable generated dist served at URL; enables browser upgrade/security regressions')
     opts=parser.parse_args(argv)
     try:
         with sync_playwright() as p:
@@ -37,6 +38,37 @@ def main(argv=None):
             assert page2.locator('h1').inner_text()=='Synthetic Demo','Offline shell failed'
             assert page2.evaluate("localStorage.getItem('synthetic-test')")=='42','Offline storage lost'
             ctx.set_offline(False)
+            if opts.dist:
+                # Test a truly installed worker's asset-only update without changing index.html.
+                from build_pwa import worker
+                from pwa_core import cache_token,sha256
+                root=opts.dist.resolve()
+                app_js=root/'app.js'
+                original=app_js.read_text('utf-8')
+                sw_path=root/'sw.js'
+                old_sha=sha256(sw_path)
+                app_js.write_text(original+"\nwindow.__PWA_ASSET_REVISION='B';\n",'utf-8')
+                paths={p.relative_to(root).as_posix():p for p in root.rglob('*') if p.is_file() and p.name!='sw.js'}
+                assets=[p for p in paths if p not in ('index.html','manifest.webmanifest','icon-192.png','icon-512.png')]
+                new_token=cache_token(paths)
+                sw_path.write_text(worker(assets,new_token),'utf-8')
+                assert old_sha!=sha256(sw_path),'Asset-only edit failed to change worker bytes'
+                # Simulate a sibling app's cache on the same origin.
+                page2.evaluate("() => caches.open('html-pwa-shell-SIBLING-DO-NOT-DELETE').then(c=>c.put('/sibling-test',new Response('keep')))")
+                page2.evaluate("() => navigator.serviceWorker.getRegistration().then(r=>r.update())")
+                page2.wait_for_function(f"() => caches.keys().then(keys=>keys.some(k=>k.includes('{new_token}')))",timeout=20000)
+                page2.wait_for_function(f"() => caches.keys().then(keys=>!keys.some(k=>k.startsWith('html-pwa-shell-%2F-')&&!k.includes('{new_token}')))",timeout=20000)
+                page2.reload(wait_until='domcontentloaded',timeout=15000)
+                page2.wait_for_function("() => window.__PWA_ASSET_REVISION==='B'",timeout=15000)
+                assert page2.evaluate("() => caches.keys().then(keys=>keys.includes('html-pwa-shell-SIBLING-DO-NOT-DELETE'))"),'Sibling cache deleted'
+                # A navigated HTML with data-like content must never overwrite cached shell.
+                other=root/'other.html'
+                other.write_text('<html><body>synthetic-marker-secret</body></html>','utf-8')
+                page2.goto(opts.url.rstrip('/')+'/other.html',wait_until='domcontentloaded')
+                assert 'synthetic-marker-secret' in page2.content(),'Synthetic other page did not load'
+                html_entry=page2.evaluate("() => caches.keys().then(keys=>keys.filter(k=>k.startsWith('html-pwa-shell-%2F-'))).then(keys=>caches.open(keys[0])).then(c=>c.match('./index.html')).then(r=>r.text())")
+                assert 'synthetic-marker-secret' not in html_entry,'Navigation clobbered cached app shell'
+                print('PASS Chromium regression: asset-only SW update, sibling-cache preservation, navigation-cache isolation')
             assert not errors,'JS errors: '+'; '.join(errors)
             print('PASS real-origin Chromium: save→second tab, worker offline refresh, persistent localStorage')
             browser.close()

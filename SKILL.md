@@ -2,12 +2,12 @@
 name: html-to-pwa-pipeline
 description: Audit, convert, test, package, and prepare a static HTML project as an installable Progressive Web App with privacy-safe assets, offline behavior and version-governed delivery. Use for HTML-to-PWA conversion, mobile offline debugging, PWA packaging, Firebase Hosting preparation, origin/persistence audits, or PWA release reviews. Never deploy or merge by default.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # HTML-to-PWA Pipeline
 
-**Version:** 0.1.0 — experimental draft, NOT independently audited or installed.
+**Version:** 0.2.0 — experimental draft, NOT independently audited or installed.
 
 ## Operating contract
 
@@ -42,7 +42,7 @@ Modes: `AUDIT_ONLY` (default for review requests), `CONVERT` (safe-copy static s
 
 ## Compatibility boundaries
 
-This v0.1.0 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
+This v0.2.0 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
 
 ## References
 
@@ -52,3 +52,6 @@ This v0.1.0 converter intentionally handles **single-page static HTML and direct
 - `references/acceptance-matrix.md`
 - `references/research-basis.md`
 - `references/installation.md`
+
+## Experimental v0.2.0 compatibility note
+Input gate is deliberately stricter than v0.1.0. Do not bypass SVG/CSP/dynamic-dependency refusals for convenience or call a static scan a full security certification. Require independent release re-audit after any safety repair.

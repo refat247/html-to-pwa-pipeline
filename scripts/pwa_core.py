@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import struct
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -12,9 +13,30 @@ FORBIDDEN_PARTS = {'private', 'secrets', 'credentials', 'node_modules', '.git', 
 SECRET_RE = re.compile(r'(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk|ghp|gho|github_pat)_[A-Za-z0-9_-]{18,}|\b(?:api[_-]?key|secret[_-]?token)\s*[:=]\s*["\'][A-Za-z0-9_-]{12,})', re.I)
 EMAIL_RE = re.compile(r'(?<![\w.+-])[\w.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', re.I)
 RUNTIME_RE = re.compile(r'\b(?:fetch\s*\(|XMLHttpRequest\b|WebSocket\s*\(|EventSource\s*\(|indexedDB\b|localStorage\b|sessionStorage\b|navigator\.serviceWorker\b)', re.I)
-IMPORT_RE = re.compile(r'(?m)^\s*(?:import\s+.+?\s+from\s+|import\s*\(|require\s*\()')
+IMPORT_RE = re.compile(r'\b(?:import\s*\(|import\s+[^;\n]+?\s+from\s*[\"\']|require\s*\()')
 CSS_URL_RE = re.compile(r'url\(\s*["\']?([^"\')]+)', re.I)
 CSS_IMPORT_RE = re.compile(r'@import\b', re.I)
+SW_REGISTER_RE = re.compile(r'\bnavigator\s*\.\s*serviceWorker\s*\.\s*register\s*\(', re.I)
+NETWORK_RE = re.compile(r'\b(?:fetch\s*\(|XMLHttpRequest\b|WebSocket\s*\(|EventSource\s*\(|sendBeacon\s*\(|https?://)', re.I)
+UNSAFE_DYNAMIC_RE = re.compile(r'\b(?:document\.write\s*\(|insertAdjacentHTML\s*\(|\.innerHTML\s*=|createElement\s*\(\s*[\"\']script[\"\']\s*\()', re.I)
+# Security-first default: static inspection is not a JS parser or an SVG sanitizer.
+ACTIVE_SVG_RE = re.compile(r'(?i)\.svg$')
+MAX_ASSET_BYTES = 20 * 1024 * 1024
+MAX_TOTAL_BYTES = 50 * 1024 * 1024
+
+
+def cache_token(paths: dict[str, Path]) -> str:
+    """Content-derived identity, deterministic across OSes and build roots."""
+    h = hashlib.sha256()
+    for rel, path in sorted(paths.items()):
+        raw = path.read_bytes()
+        name = rel.encode('utf-8')
+        h.update(struct.pack('>Q', len(name)))
+        h.update(name)
+        h.update(struct.pack('>Q', len(raw)))
+        h.update(raw)
+    return h.hexdigest()[:16]
+
 
 
 class LocalTags(HTMLParser):
@@ -25,15 +47,27 @@ class LocalTags(HTMLParser):
         self.has_manifest = False
         self.has_sw_reference = False
         self.has_script_inline = False
+        self.has_csp = False
+        self.has_base = False
+        self._script = False
+        self.inline_scripts = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == 'script':
+            self._script = True
+        if tag == 'base':
+            self.has_base = True
+        if tag == 'meta' and attrs.get('http-equiv','').strip().lower() == 'content-security-policy':
+            self.has_csp = True
         if tag in ('iframe','object','embed'):
             self.remote.append('Embedded resource requires manual review: '+tag)
         if tag == 'form' and (attrs.get('action') or attrs.get('method','').lower()=='post'):
             self.remote.append('Form submission requires backend review')
         if tag == 'link' and 'manifest' in attrs.get('rel', '').lower().split():
             self.has_manifest = True
+        if any(name.lower().startswith('on') for name in attrs):
+            self.remote.append('Inline event handler requires manual review: '+tag)
         for name in ('src', 'href', 'poster'):
             raw = attrs.get(name)
             if not raw: continue
@@ -45,8 +79,18 @@ class LocalTags(HTMLParser):
             if attrs.get(name):
                 self.remote.append('srcset requires manual review: '+attrs[name][:70])
 
+    def handle_endtag(self,tag):
+        if tag == 'script':
+            self._script = False
+
+    def handle_data(self, data):
+        if self._script:
+            self.inline_scripts.append(data)
+
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
 
 
 def sha256(path: Path) -> str:
@@ -75,7 +119,9 @@ def suspicious_path(relative: Path) -> bool:
 
 def safe_local(ref: str, parent: Path, root: Path) -> tuple[str, Path | None]:
     ref = ref.strip()
-    if not ref or ref.startswith(('#', 'data:', 'blob:', 'mailto:', 'tel:', 'javascript:')):
+    if ref.lower().startswith(('javascript:', 'data:', 'blob:')):
+        return 'unsafe_scheme', None
+    if not ref or ref.startswith(('#', 'mailto:', 'tel:')):
         return 'inline', None
     split = urlsplit(ref)
     if split.scheme or split.netloc or ref.startswith('//'):
@@ -97,17 +143,27 @@ def inspect_input(path: Path) -> dict:
     parser = LocalTags(); parser.feed(html)
     refs, issues, scanned, remote = list(parser.refs), [], set(), set()
     if parser.has_manifest: issues.append('Existing web manifest: manual integration required')
-    if re.search(r'navigator\.serviceWorker\s*\.\s*register\s*\(', html):
+    if parser.has_base: issues.append('HTML base href: changes relative URL semantics; manual review required')
+    if parser.has_csp: issues.append('Content-Security-Policy meta: injected inline registrar may violate CSP; manual integration required')
+    if SW_REGISTER_RE.search(html):
         issues.append('Existing Service Worker registration: manual integration required')
     if SECRET_RE.search(html) or EMAIL_RE.search(html):
         issues.append('Sensitive-looking token or email in input HTML: redact before public packaging')
-    if re.search(r'\b(?:import\s*\(|import\s+.+?from\s+|require\s*\()', html):
+    if IMPORT_RE.search(html):
         issues.append('JavaScript module import or require: unbundled module review required')
-    if re.search(r'\b(?:fetch\s*\(|XMLHttpRequest\b|WebSocket\s*\()', html):
+    if NETWORK_RE.search('\n'.join(parser.inline_scripts)):
         issues.append('Runtime network call in HTML: cannot guarantee offline completeness')
     if re.search(r'\b(?:action=|method=["\']post)', html, re.I):
         issues.append('HTML form/server submission: backend behavior requires inspection')
+    if UNSAFE_DYNAMIC_RE.search('\n'.join(parser.inline_scripts)):
+        issues.append('Dynamic HTML/script injection in inline JS: manual security review required')
+    if re.search(r'https?://','\n'.join(parser.inline_scripts),re.I):
+        issues.append('Unverified external URL in inline JS: manual security review required')
     if parser.remote: issues.extend(parser.remote)
+    size_total = index.stat().st_size
+    if size_total > MAX_ASSET_BYTES:
+        issues.append('Source index.html exceeds maximum supported asset size')
+    has_storage = bool(re.search(r'\b(?:localStorage|sessionStorage|indexedDB)\b', html))
     cursor = 0
     while cursor < len(refs):
         ref = refs[cursor]; cursor += 1
@@ -124,7 +180,16 @@ def inspect_input(path: Path) -> dict:
             continue
         relative = target.relative_to(root).as_posix()
         if target in scanned: continue
+        size = target.stat().st_size
+        size_total += size
+        if size > MAX_ASSET_BYTES or size_total > MAX_TOTAL_BYTES:
+            issues.append('Asset/package exceeds conservative 20MB per-file or 50MB total size cap: '+relative)
         scanned.add(target)
+        if target.suffix.lower()=='.svg':
+            issues.append('SVG assets require manual sanitization or raster conversion: '+relative)
+            # An SVG is an active standalone document on the same origin.
+            # Never allow an SVG merely because img src rendering is inert.
+
         if SECRET_RE.search(target.read_text('utf-8',errors='replace')) if target.suffix.lower() in ('.js','.mjs','.css','.html') else False:
             issues.append('Sensitive-looking token in '+relative)
         if EMAIL_RE.search(target.read_text('utf-8',errors='replace')) if target.suffix.lower() in ('.js','.mjs','.css','.html') else False:
@@ -132,7 +197,12 @@ def inspect_input(path: Path) -> dict:
         if target.suffix.lower() in ('.js','.mjs'):
             j=target.read_text('utf-8',errors='replace')
             if IMPORT_RE.search(j):issues.append('Unbundled JS import in '+relative)
-            if re.search(r'\b(?:fetch\s*\(|XMLHttpRequest\b|WebSocket\s*\()',j):issues.append('Runtime network usage in '+relative)
+            if SW_REGISTER_RE.search(j):issues.append('Existing Service Worker registration in '+relative)
+            if UNSAFE_DYNAMIC_RE.search(j):issues.append('Dynamic HTML/script injection in '+relative+' requires manual review')
+            if NETWORK_RE.search(j):issues.append('Runtime network usage in '+relative)
+            if re.search(r'https?://',j,re.I):issues.append('Unverified external URL in JS requires manual review: '+relative)
+            if re.search(r'\b(?:localStorage|sessionStorage|indexedDB)\b',j):has_storage=True
+
         if target.suffix.lower()=='.css':
             css=target.read_text('utf-8',errors='replace')
             if CSS_IMPORT_RE.search(css):issues.append('CSS @import in '+relative+' requires review')
@@ -142,7 +212,7 @@ def inspect_input(path: Path) -> dict:
         'source':str(index),'source_sha256':sha256(index),'root':str(root),
         'local_assets':sorted(p.relative_to(root).as_posix() for p in scanned),
         'external_refs':sorted(remote),'issues':sorted(set(issues)),
-        'has_browser_storage':bool(re.search(r'\b(?:localStorage|sessionStorage|indexedDB)\b', html)),
+        'has_browser_storage':has_storage,
         'static_conversion_eligible':not bool(fatal),
         'offline_complete_claim_allowed':not bool(remote or issues),
         'mode':'static-single-page'

@@ -10,3 +10,5 @@ This standalone repository is separate from clinical repos. All changes require:
 6. No private files, credentials, user account metadata or patient records in public repo, CI logs, generated `dist/` or Notion.
 
 **Public CI credential boundary:** The canonical Version Manager v1.3.0 repository is private. Never place its source or a read PAT in this public PR. CI runs an independent SemVer drift checker; the owner must separately verify canonical `--inspect`/`--verify` before merge.
+
+**Experimental compatibility boundary (0.x):** The 2026-11-14 v0.2.0 revision intentionally narrows accepted unsafe inputs compared with v0.1.0. Since the package remains pre-1.0 and no stable compatibility guarantee has been published, this breaking experimental scope change is classified as an explicit 0.x MINOR increase. Independent reviewer and owner must verify this classification before merging.

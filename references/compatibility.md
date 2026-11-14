@@ -4,11 +4,15 @@
 
 Preserve byte-for-byte source and compute SHA-256. Inventory JavaScript/CSS imports, remote network calls, service worker and manifest state, data storage, hardcoded domains, forms requiring backends, authentication and runtime dependencies. Classify: static self-contained, static+assets, static+remote, API-backed, auth-backed, SSR/server-backed. **A visible shell is not a functional app.**
 
-## Supported v0.1.0 converter
+## Supported experimental v0.2.0 converter
 
 - Single-page index.html and direct referenced relative local scripts, CSS and image/font resources, all within source root.
 - Relative PWA manifest and Service Worker references (root hosting or subpath).
 - Origin-local browser storage can work, but if source relies on file:// URL behavior, flag migration for live test.
+
+## v0.2.0 conservative security boundary
+
+References to executable SVG, inline CSP, dynamic script creation, inline event handlers or JS module imports are not safely converted by this prototype: conversion refuses them for manual review. JS-linked `localStorage` use is counted in the census. `--strict-offline` must reject unresolved fetch/external dependencies rather than claiming full offline completeness.
 
 ## Manual-review blockers
 

@@ -3,14 +3,17 @@
 from __future__ import annotations
 import argparse
 import hashlib
+import os
+import tempfile
 import json
 import re
 import shutil
 import struct
 import sys
 import zlib
+from html.parser import HTMLParser
 from pathlib import Path
-from pwa_core import inspect_input, source_root, sha256
+from pwa_core import inspect_input, source_root, sha256, cache_token
 
 
 def make_png(size: int) -> bytes:
@@ -29,17 +32,48 @@ def make_png(size: int) -> bytes:
     return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',size,size,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
 
 
+class StructuralEnds(HTMLParser):
+    """Locate actual </head> and </body> tags, excluding scripts/comments."""
+    def __init__(self, html: str):
+        super().__init__(convert_charrefs=False)
+        self._offsets=[0]
+        for line in html.splitlines(keepends=True):
+            self._offsets.append(self._offsets[-1]+len(line))
+        self.pos={'head':[],'body':[]}
+
+    def handle_endtag(self, tag):
+        if tag in self.pos:
+            line,col=self.getpos()
+            self.pos[tag].append(self._offsets[line-1]+col)
+
+
+def inject_into_real_closing_tag(html: str, tag: str, insertion: str) -> str:
+    parser=StructuralEnds(html)
+    parser.feed(html)
+    positions=parser.pos[tag]
+    if len(positions)!=1:
+        raise ValueError(f'Cannot inject PWA metadata: expected one real </{tag}> tag, found {len(positions)}')
+    i=positions[0]
+    if not re.match(r'</'+tag+r'\s*>',html[i:],re.I):
+        raise ValueError(f'HTML closing </{tag}> boundary ambiguous; manual review required')
+    return html[:i]+insertion+'\n'+html[i:]
+
+
 def worker(asset_paths:list[str], token: str) -> str:
     precache=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png']
     precache += ['./'+p for p in asset_paths]
-    return ("// Generated shell-only worker. Review offline strategy and private data threats before release.\n"
-        +f"const CACHE='html-pwa-shell-{token}';\nconst PRECACHE={json.dumps(sorted(set(precache)))};\n"
+    return ("// Generated scoped PWA shell-only worker; no navigation response caching.\n"
+        +"const CACHE_PREFIX='html-pwa-shell-'+encodeURIComponent(new URL(self.registration.scope).pathname)+'-';\n"
+        +f"const CACHE=CACHE_PREFIX+'{token}';\nconst PRECACHE={json.dumps(sorted(set(precache)))};\n"
+        +"const SHELL_PATH=new URL('./',self.registration.scope).pathname;\n"
+        +"const INDEX_PATH=new URL('index.html',self.registration.scope).pathname;\n"
         +"self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting()));});\n"
-        +"self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('html-pwa-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});\n"
+        +"self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(CACHE_PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});\n"
         +"self.addEventListener('fetch',event=>{const req=event.request;const url=new URL(req.url);"
         +"if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.includes('/api/'))return;"
-        +"if(req.mode==='navigate'){event.respondWith(fetch(req).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));}return r;}).catch(()=>caches.match('./index.html')));return;}"
-        +"event.respondWith(caches.match(req).then(hit=>hit||fetch(req)));});\n")
+        +"if(req.mode==='navigate'){if(url.pathname!==SHELL_PATH&&url.pathname!==INDEX_PATH)return;"
+        +"event.respondWith(fetch(req).catch(()=>caches.match('./index.html')));return;}"
+        +"event.respondWith(caches.match(req,{ignoreSearch:true}).then(hit=>hit||fetch(req)));});\n")
 
 
 def build(args) -> tuple[dict,Path]:
@@ -59,32 +93,41 @@ def build(args) -> tuple[dict,Path]:
         raise ValueError('Source HTML must be named index.html in this draft; do not rename files silently')
     if out.exists() and any(out.iterdir()):
         raise ValueError('Output directory must be empty or absent; no overwrites')
-    out.mkdir(parents=True,exist_ok=True)
+    out.parent.mkdir(parents=True,exist_ok=True)
+    staging=Path(tempfile.mkdtemp(prefix='.'+out.name+'-staging-',dir=str(out.parent))).resolve()
+    try:
+        return _build_staged(root,index,report,args,out,staging)
+    finally:
+        if staging.exists():shutil.rmtree(staging)
+
+def _build_staged(root,index,report,args,out,staging):
     html=index.read_text('utf-8')
     head_tags=f'<link rel="manifest" href="./manifest.webmanifest">\n<meta name="theme-color" content="{args.theme_color}">'
-    html,head_count=re.subn(r'</head\s*>',lambda _:head_tags+'\n</head>',html,count=1,flags=re.I)
-    if head_count!=1:raise ValueError('Cannot inject manifest: source missing </head>')
+    html=inject_into_real_closing_tag(html,'head',head_tags)
     registration="<script>if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(error=>console.warn('Service worker failed:',error)));}</script>"
-    html,body_count=re.subn(r'</body\s*>',lambda _:registration+'\n</body>',html,count=1,flags=re.I)
-    if body_count!=1:raise ValueError('Cannot inject worker: source missing </body>')
-    (out/'index.html').write_text(html,'utf-8')
+    html=inject_into_real_closing_tag(html,'body',registration)
+    (staging/'index.html').write_text(html,'utf-8')
     for asset in report['local_assets']:
-        src=root/asset;dst=out/asset;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dst)
+        src=root/asset;dst=staging/asset;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dst)
     manifest={
         'name':args.name,'short_name':args.short_name,'description':'Static offline-capable HTML app',
         'id':'./','start_url':'./','scope':'./','display':'standalone',
         'background_color':args.theme_color,'theme_color':args.theme_color,
         'icons':[{'src':f'./icon-{n}.png','sizes':f'{n}x{n}','type':'image/png','purpose':'any'} for n in (192,512)]
     }
-    (out/'manifest.webmanifest').write_text(json.dumps(manifest,indent=2)+'\n','utf-8')
-    for s in (192,512):(out/f'icon-{s}.png').write_bytes(make_png(s))
-    salt=hashlib.sha256((sha256(index)+'\n'+'\n'.join(report['local_assets'])).encode()).hexdigest()[:16]
-    (out/'sw.js').write_text(worker(report['local_assets'],salt),'utf-8')
-    contents=sorted(p.relative_to(out).as_posix() for p in out.rglob('*') if p.is_file())
+    (staging/'manifest.webmanifest').write_text(json.dumps(manifest,indent=2)+'\n','utf-8')
+    for s in (192,512):(staging/f'icon-{s}.png').write_bytes(make_png(s))
+    src_assets={p.relative_to(staging).as_posix():p for p in staging.rglob('*') if p.is_file()}
+    salt=cache_token(src_assets)
+    (staging/'sw.js').write_text(worker(report['local_assets'],salt),'utf-8')
+    contents=sorted(p.relative_to(staging).as_posix() for p in staging.rglob('*') if p.is_file())
     result={'status':'BUILD_CREATED_NOT_RUNTIME_VERIFIED','source_sha256':report['source_sha256'],
-            'dist_files':contents,'dist_sha256':{p:sha256(out/p) for p in contents},
+            'dist_files':contents,'dist_sha256':{p:sha256(staging/p) for p in contents},
             'offline_complete_claim_allowed':report['offline_complete_claim_allowed'],
             'external_refs':report['external_refs'],'issues':report['issues']}
+    # Stage everything before touching the final directory. Failed builds leave it empty.
+    if out.exists():out.rmdir()
+    os.replace(staging,out)
     return result,out
 
 

@@ -15,4 +15,4 @@ This skill is an original orchestration and minimal converter, not a copy of thi
 | https://github.com/FirebaseExtended/action-hosting-deploy | GitHub PR preview channels | Credentials/security approval needed |
 | https://github.com/refat247/medical-cdss-skills/tree/main/version-manager | Mandatory version governance | Manager version is independent of this skill |
 
-References do not imply endorsement or authorize copying third-party source code. Check licenses before any vendoring. We use no vendored implementation dependencies in v0.1.0.
+References do not imply endorsement or authorize copying third-party source code. Check licenses before any vendoring. We use no vendored implementation dependencies in v0.2.0.

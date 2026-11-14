@@ -8,10 +8,10 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
       - name: Check original tests and converter
@@ -32,10 +32,10 @@ jobs:
   chromium-smoke:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
       - name: Install isolated Chromium test dependency
@@ -46,4 +46,4 @@ jobs:
         run: |
           python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-smoke --name "Synthetic Demo" --short-name Demo --strict-offline
           (cd /tmp/pwa-smoke && python -m http.server 8197 --bind 127.0.0.1 >/tmp/pwa-http.log 2>&1 &)
-          python scripts/browser_smoke.py http://localhost:8197/
+          python scripts/browser_smoke.py http://localhost:8197/ --dist /tmp/pwa-smoke
