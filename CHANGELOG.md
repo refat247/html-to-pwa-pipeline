@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-11-14
+
+### Changed — P3 security hardening (owner Option B)
+- Restrict ambiguous dynamic code/DOM construction in inline and referenced JavaScript; manual review required instead of treating clever split-string loaders as offline-safe.
+- Refuse references to reserved generated PWA filenames rather than silently shadowing a source service worker, manifest or icon.
+- Use secure-context capability detection for the Service Worker registrar, including loopback 127.0.0.1 where supported by the browser.
+- Extend synthetic regression tests and Chromium localhost/127.0.0.1 smoke workflow.
+- Clarify scanner limitations, public-repository license status, unchanged source preservation and scope of test claims.
+
+### Version and release gates
+- v0.2.1 to v0.3.0 is a **MINOR** release under pre-1.0 SemVer: previously accepted ambiguous JS constructions are intentionally refused.
+- Draft only. Original canonical Version Manager v1.3.0 CLI and independent Grok re-audit required on the new exact HEAD before any owner merge; Android/iOS and production deployment remain UNVERIFIED.
+
 ## [0.2.1] - 2026-11-14
 
 ### Fixed — response to independent Grok Build re-audit

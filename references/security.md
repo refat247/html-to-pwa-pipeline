@@ -11,3 +11,7 @@
 ## Independent Grok Build 14 November 2026 review follow-up
 
 The initial v0.1.0 review was REQUEST_CHANGES: unchanged workers on asset-only builds, stale sibling cache cleanup, nav cache clobber, unsafe SVG documents, invalid inline HTML insertion, and incomplete JS dependency census. v0.2.0 introduces fail-closed handling and regression tests, but independent re-audit of the latest PR SHA is mandatory. Do not infer a whole-program security proof from regex-based static inspection. Incompatible CSP and active SVG require explicit manual remediation rather than silent sanitization.
+
+## v0.3.0 remaining risk boundary
+
+Automatic conversion rejects ambiguous runtime code construction and generated filename collisions for manual review. Lexical checks, even strict mode, are not JavaScript semantic analysis and cannot prove that a PWA never makes a request. HTTP-header CSP, physical iOS/Android acceptance and crash interruption are not verified by CLI tests. A public GitHub repository is not automatically licensed for third-party reuse; owner decides the LICENSE separately. Do not label the artifact privacy-certified.

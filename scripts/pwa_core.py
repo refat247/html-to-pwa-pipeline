@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ALLOWED_ASSETS = {'.html', '.htm', '.css', '.js', '.mjs', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.woff', '.woff2', '.ttf', '.webmanifest'}
+GENERATED_NAMES = {'sw.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'}
 FORBIDDEN_PARTS = {'private', 'secrets', 'credentials', 'node_modules', '.git', '.env', 'backup', 'backups', '__pycache__'}
 SECRET_RE = re.compile(r'(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk|ghp|gho|github_pat)_[A-Za-z0-9_-]{18,}|\b(?:api[_-]?key|secret[_-]?token)\s*[:=]\s*["\'][A-Za-z0-9_-]{12,})', re.I)
 EMAIL_RE = re.compile(r'(?<![\w.+-])[\w.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', re.I)
@@ -20,6 +21,17 @@ SW_REGISTER_RE = re.compile(r'\bnavigator\s*\.\s*serviceWorker\s*\.\s*register\s
 NETWORK_RE = re.compile(r'\b(?:fetch\s*\(|XMLHttpRequest\b|WebSocket\s*\(|EventSource\s*\(|sendBeacon\s*\(|https?://)', re.I)
 UNSAFE_DYNAMIC_RE = re.compile(r'\b(?:document\.write\s*\(|insertAdjacentHTML\s*\(|\.innerHTML\s*=|createElement\s*\(\s*[\"\']script[\"\']\s*\()', re.I)
 # Security-first default: static inspection is not a JS parser or an SVG sanitizer.
+# Fail closed on dynamic code/asset constructors (including split-string loader shapes).
+# This is deliberately over-sensitive: it is NOT full JavaScript analysis.
+DYNAMIC_CODE_RE = re.compile(
+    r'''(?ix)
+    \b(?:eval|Function|importScripts|setAttribute|appendChild|insertBefore|replaceChild|createElement|createElementNS|String\.fromCharCode|atob|setInterval|setTimeout)\s*\(
+    | \b(?:document|window|globalThis)\s*\[
+    | \b(?:create|cre|Element|script)\s*["']\s*\+\s*["']
+    | \b(?:src|href)\s*\+\s*=
+    | \bnew\s+Function\b
+    | \b(?:import|export)\s*\(
+    ''')
 ACTIVE_SVG_RE = re.compile(r'(?i)\.svg$')
 MAX_ASSET_BYTES = 20 * 1024 * 1024
 MAX_TOTAL_BYTES = 50 * 1024 * 1024
@@ -151,6 +163,8 @@ def inspect_input(path: Path) -> dict:
         issues.append('Sensitive-looking token or email in input HTML: redact before public packaging')
     if IMPORT_RE.search(html):
         issues.append('JavaScript module import or require: unbundled module review required')
+    if DYNAMIC_CODE_RE.search('\n'.join(parser.inline_scripts)):
+        issues.append('Dynamic code or DOM construction in inline JS: manual review required')
     if NETWORK_RE.search('\n'.join(parser.inline_scripts)):
         issues.append('Runtime network call in HTML: cannot guarantee offline completeness')
     if re.search(r'\b(?:action=|method=["\']post)', html, re.I):
@@ -179,7 +193,12 @@ def inspect_input(path: Path) -> dict:
             issues.append(f'{status}: '+(ref if isinstance(ref,str) else ref[0]))
             continue
         relative = target.relative_to(root).as_posix()
+        if relative.lower() in GENERATED_NAMES:
+            issues.append('Generated PWA output filename collision: '+relative)
+            continue
         if target in scanned: continue
+        if target.suffix.lower() in ('.html', '.htm'):
+            issues.append('Referenced secondary HTML page requires manual review: '+relative)
         size = target.stat().st_size
         size_total += size
         if size > MAX_ASSET_BYTES or size_total > MAX_TOTAL_BYTES:
@@ -197,6 +216,7 @@ def inspect_input(path: Path) -> dict:
         if target.suffix.lower() in ('.js','.mjs'):
             j=target.read_text('utf-8',errors='replace')
             if IMPORT_RE.search(j):issues.append('Unbundled JS import in '+relative)
+            if DYNAMIC_CODE_RE.search(j):issues.append('Dynamic code or DOM construction in '+relative+' requires manual review')
             if SW_REGISTER_RE.search(j):issues.append('Existing Service Worker registration in '+relative)
             if UNSAFE_DYNAMIC_RE.search(j):issues.append('Dynamic HTML/script injection in '+relative+' requires manual review')
             if NETWORK_RE.search(j):issues.append('Runtime network usage in '+relative)

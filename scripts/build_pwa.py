@@ -113,7 +113,7 @@ def _build_staged(root,index,report,args,out,staging):
     html=index.read_text('utf-8')
     head_tags=f'<link rel="manifest" href="./manifest.webmanifest">\n<meta name="theme-color" content="{args.theme_color}">'
     html=inject_into_real_closing_tag(html,'head',head_tags)
-    registration="<script>if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(error=>console.warn('Service worker failed:',error)));}</script>"
+    registration="<script>if('serviceWorker' in navigator && window.isSecureContext){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(error=>console.warn('Service worker failed:',error)));}</script>"
     html=inject_into_real_closing_tag(html,'body',registration)
     (staging/'index.html').write_text(html,'utf-8')
     for asset in report['local_assets']:

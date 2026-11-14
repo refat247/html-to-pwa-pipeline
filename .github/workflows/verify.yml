@@ -47,3 +47,4 @@ jobs:
           python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-smoke --name "Synthetic Demo" --short-name Demo --strict-offline
           (cd /tmp/pwa-smoke && python -m http.server 8197 --bind 127.0.0.1 >/tmp/pwa-http.log 2>&1 &)
           python scripts/browser_smoke.py http://localhost:8197/ --dist /tmp/pwa-smoke
+          python scripts/browser_smoke.py http://127.0.0.1:8197/

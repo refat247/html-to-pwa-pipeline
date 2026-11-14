@@ -45,6 +45,8 @@ def verify(root:Path):
     registrar='\n'.join(parsed.inline_scripts)
     if "navigator.serviceWorker.register('./sw.js')" not in registrar:
         errs.append('HTML lacks a real inline Service Worker registrar')
+    if 'window.isSecureContext' not in registrar:
+        errs.append('Service Worker registrar must use secure-context capability gate')
     for ref in parsed.refs:
         status,p=safe_local(ref,root,root)
         if status not in ('local','external','inline'):errs.append('Invalid asset reference '+ref+': '+status)

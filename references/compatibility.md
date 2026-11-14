@@ -21,3 +21,7 @@ Existing Service Worker or manifest, remote API and external JS, JS `import`/`re
 ## Release criteria
 
 Data semantics, first-run dependencies, accessibility and privacy must pass real-origin and physical-device tests. Unknown is never zero. Source remains unchanged. The builder creates a new `dist/` with an explicit inventory and report rather than copying a directory wholesale.
+
+## v0.3.0 remaining risk boundary
+
+Automatic conversion rejects ambiguous runtime code construction and generated filename collisions for manual review. Lexical checks, even strict mode, are not JavaScript semantic analysis and cannot prove that a PWA never makes a request. HTTP-header CSP, physical iOS/Android acceptance and crash interruption are not verified by CLI tests. A public GitHub repository is not automatically licensed for third-party reuse; owner decides the LICENSE separately. Do not label the artifact privacy-certified.
