@@ -20,17 +20,15 @@ jobs:
           python scripts/audit_html.py tests/fixtures/index.html --report /tmp/source-audit.json
           python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-dist --name "Synthetic Demo" --short-name Demo --strict-offline
           python scripts/verify_dist.py /tmp/pwa-dist
-      - name: Download pinned canonical Version Manager
-        uses: actions/checkout@v4
-        with:
-          repository: refat247/medical-cdss-skills
-          ref: c92d342d77d8b3c433fe16280a0c0d57f4d8f48f
-          path: .canonical-version-manager
-          persist-credentials: false
-      - name: Verify canonical current version declarations
+      # The canonical Version Manager lives in a private repo. GitHub's
+      # public-repository GITHUB_TOKEN cannot fetch it. Do not inject PATs into
+      # workflows that run pull-request code or publish its private source.
+      # Independent public drift check is a CI safety net; authorized canonical
+      # CLI inspect/verify remains a distinct PRE-MERGE requirement.
+      - name: Public SemVer drift check (canonical CLI remains a review gate)
         run: |
-          python .canonical-version-manager/version-manager/scripts/bump_version.py . --inspect
-          python .canonical-version-manager/version-manager/scripts/bump_version.py . --verify
+          python scripts/check_version_contract.py . --inspect
+          python scripts/check_version_contract.py . --verify
   chromium-smoke:
     runs-on: ubuntu-24.04
     steps:

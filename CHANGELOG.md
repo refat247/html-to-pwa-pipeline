@@ -7,7 +7,7 @@
 - Static input audit with dependency, storage, existing-PWA and sensitive-data checks.
 - Conservative static HTML builder producing manifest, two icons, service worker and referenced local assets.
 - Distribution verifier, synthetic fixtures, automated regression tests and manual device acceptance matrix.
-- Version Manager v1.3.0 source-pinned GitHub Actions verification plan.
+- Public SemVer declaration CI check; canonical private Version Manager v1.3.0 requires authorized pre-merge verification (not auto-fetched by public CI).
 
 ### Limitations
 - Static single-page input and direct asset references only; no framework bundling, backend reconstruction or live API offline translation.
