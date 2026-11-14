@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1] - 2026-11-14
+
+### Fixed — response to independent Grok Build re-audit
+- Replace `cache.addAll(PRECACHE)` with same-origin `fetch(new Request(url, {cache:'reload'}))` and `cache.put()` in the install precache, so asset-only worker upgrades do not copy stale bytes from the browser HTTP cache.
+- Extend Chromium smoke test to warm a default static server, inspect newly cached `app.js` bytes, wait for worker activation and verify the new DOM after reload.
+- Add regression for HTTP-cache bypass; preserve existing scoped cache cleanup and offline verification.
+
+### Release status
+- Experimental draft only; canonical Version Manager v1.3.0 and independent Grok Build re-audit must run on the *new exact HEAD*. Local and GitHub CI PASS alone do not authorize merge.
+
 ## [0.2.0] - 2026-11-14
 
 ### Changed — security-hardening of experimental inputs

@@ -9,7 +9,7 @@ class GovernanceTests(unittest.TestCase):
         readme=(ROOT/'README.md').read_text()
         changelog=(ROOT/'CHANGELOG.md').read_text()
         version=re.search(r'(?m)^  version: (\d+\.\d+\.\d+)$',skill).group(1)
-        self.assertEqual(version,'0.2.0')
+        self.assertEqual(version,'0.2.1')
         self.assertRegex(meta,r'(?m)^version: '+re.escape(version)+r'$')
         self.assertIn('**Version:** '+version,readme)
         self.assertIn('## ['+version+']',changelog)

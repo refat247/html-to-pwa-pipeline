@@ -67,7 +67,16 @@ def worker(asset_paths:list[str], token: str) -> str:
         +f"const CACHE=CACHE_PREFIX+'{token}';\nconst PRECACHE={json.dumps(sorted(set(precache)))};\n"
         +"const SHELL_PATH=new URL('./',self.registration.scope).pathname;\n"
         +"const INDEX_PATH=new URL('index.html',self.registration.scope).pathname;\n"
-        +"self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting()));});\n"
+        # cache.addAll() may reuse old bytes from the browser default HTTP cache.
+        # Bypass that cache when creating a *new* versioned SW cache.
+        +"self.addEventListener('install',event=>{event.waitUntil((async()=>{"
+        +"const c=await caches.open(CACHE);"
+        +"await Promise.all(PRECACHE.map(async path=>{"
+        +"const req=new Request(new URL(path,self.registration.scope),{cache:'reload',credentials:'same-origin'});"
+        +"const response=await fetch(req);"
+        +"if(!response.ok||response.type==='opaque')throw new Error('Precache fetch refused: '+req.url);"
+        +"await c.put(req,response);"
+        +"}));await self.skipWaiting();})());});\n"
         +"self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(CACHE_PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});\n"
         +"self.addEventListener('fetch',event=>{const req=event.request;const url=new URL(req.url);"
         +"if(req.method!=='GET'||url.origin!==self.location.origin||url.pathname.includes('/api/'))return;"

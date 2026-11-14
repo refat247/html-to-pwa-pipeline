@@ -51,6 +51,17 @@ class SecurityRegressionTests(unittest.TestCase):
         self.assertEqual(verify(a),[])
         self.assertEqual(verify(b),[])
 
+    def test_install_precache_bypasses_stale_browser_http_cache(self):
+        self.create('<html><head></head><body><script src="app.js"></script></body></html>',**{'app.js':'window.VERSION="A";'})
+        out,_=self.build()
+        sw=(out/'sw.js').read_text('utf-8')
+        self.assertIn("cache:'reload'",sw)
+        self.assertIn('const response=await fetch(req)',sw)
+        self.assertIn('await c.put(req,response)',sw)
+        self.assertIn('await Promise.all(PRECACHE.map(',sw)
+        self.assertNotIn('c.addAll(PRECACHE)',sw)
+        self.assertEqual(verify(out),[])
+
     def test_css_content_change_forces_new_worker(self):
         self.create('<html><head><link rel="stylesheet" href="s.css"></head><body>OK</body></html>',**{'s.css':'body{color:red}'})
         a,_=self.build(name='A')
