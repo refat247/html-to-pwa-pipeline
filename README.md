@@ -1,6 +1,6 @@
 # HTML-to-PWA Pipeline
 
-**Version:** 0.1.0
+**Version:** 0.1.1
 **Status:** Experimental Draft PR; local unit and synthetic browser CI tests available. Not merged, installed, independently audited, or deployed.
 
 Portable Agent Skill and Python standard-library proof-of-concept for auditing and converting eligible **static** HTML projects into PWA distributions without mutating original files.
@@ -31,7 +31,7 @@ The skill does **not** automatically change GitHub, Firebase or any account. It 
 
 ## Version contract
 
-Canonical Version Manager is `refat247/medical-cdss-skills/version-manager` v1.3.0 as of 2026-11-14; historical private copy and repository policy reference v1.2.1. This authority drift is documented and must be reconciled without silently changing historical provenance. Root package declarations are SKILL.md metadata.version, `agents/openai.yaml` version, README and latest CHANGELOG heading. The canonical Version Manager v1.3.0 is in a **private** repository: the standalone public GitHub Actions token cannot check it out. Public CI therefore uses an independently written strict declaration-drift check (`scripts/check_version_contract.py`), **not the canonical CLI**. Before owner merge, the canonical `--inspect`/`--verify` must still be run in a trusted environment with authorized access; this gate is currently UNVERIFIED. Do not copy private source into this public repo or add a read PAT to untrusted PR jobs. Branch protection enforcement also requires owner configuration. An initial draft v0.1.0 does not count as stable v1.0.0.
+Canonical Version Manager is `refat247/medical-cdss-skills/version-manager` v1.3.0 as of 2026-11-14; historical private copy and repository policy reference v1.2.1. This authority drift is documented and must be reconciled without silently changing historical provenance. Root package declarations are SKILL.md metadata.version, `agents/openai.yaml` version, README and latest CHANGELOG heading. The canonical Version Manager v1.3.0 is accessible in the **public** `refat247/medical-cdss-skills` repository. GitHub Actions sparsely check out that repository at pinned commit `c92d342d77d8b3c433fe16280a0c0d57f4d8f48f` without a PAT, then run the original `--inspect` and `--verify` directly against this skill. `scripts/check_version_contract.py` is also run as defense-in-depth, not as a replacement. Source inspection does not prove execution: confirm the CI logs and exact checked-out commit. Branch protection enforcement requires separate owner verification. The historical private v1.2.1 copy and stale policy remain a documented reconciliation task. Draft v0.1.1 is not a stable v1.0.0 release.
 
 ## Provenance
 
