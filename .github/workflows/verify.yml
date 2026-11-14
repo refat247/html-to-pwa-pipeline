@@ -1,0 +1,51 @@
+name: verify-skill-and-version
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check original tests and converter
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          python scripts/audit_html.py tests/fixtures/index.html --report /tmp/source-audit.json
+          python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-dist --name "Synthetic Demo" --short-name Demo --strict-offline
+          python scripts/verify_dist.py /tmp/pwa-dist
+      - name: Download pinned canonical Version Manager
+        uses: actions/checkout@v4
+        with:
+          repository: refat247/medical-cdss-skills
+          ref: c92d342d77d8b3c433fe16280a0c0d57f4d8f48f
+          path: .canonical-version-manager
+          persist-credentials: false
+      - name: Verify canonical current version declarations
+        run: |
+          python .canonical-version-manager/version-manager/scripts/bump_version.py . --inspect
+          python .canonical-version-manager/version-manager/scripts/bump_version.py . --verify
+  chromium-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated Chromium test dependency
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Build disposable synthetic app and test real browser origin
+        run: |
+          python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-smoke --name "Synthetic Demo" --short-name Demo --strict-offline
+          (cd /tmp/pwa-smoke && python -m http.server 8197 --bind 127.0.0.1 >/tmp/pwa-http.log 2>&1 &)
+          python scripts/browser_smoke.py http://localhost:8197/

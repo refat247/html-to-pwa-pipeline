@@ -1,0 +1,24 @@
+name: html-to-pwa-pipeline
+version: 0.1.0
+primary_skill: true
+metadata:
+  status: experimental
+  trigger_examples:
+    - Convert this existing static HTML into an installable PWA without changing source.
+    - Audit this web app for offline, installability, browser storage and deployment readiness.
+    - Prepare a version-governed PWA release PR with Firebase Hosting files.
+  required_files:
+    - SKILL.md
+    - README.md
+    - CHANGELOG.md
+    - references/compatibility.md
+    - references/security.md
+    - references/hosting.md
+    - references/acceptance-matrix.md
+    - scripts/audit_html.py
+    - scripts/build_pwa.py
+    - scripts/verify_dist.py
+interface:
+  display_name: HTML-to-PWA Pipeline
+  short_description: Audit, build and verify static HTML as privacy-safe installable PWAs
+  default_prompt: Audit the source, preserve originals, choose appropriate PWA scope, generate public-safe artifacts, run version-governed tests, and do not merge or deploy without approval.
