@@ -2,12 +2,12 @@
 name: html-to-pwa-pipeline
 description: Audit, convert, test, package, and prepare a static HTML project as an installable Progressive Web App with privacy-aware heuristics, offline checks and version-governed delivery. Use for HTML-to-PWA conversion, mobile offline debugging, PWA packaging, Firebase Hosting preparation, origin/persistence audits, or PWA release reviews. Never deploy or merge by default.
 metadata:
-  version: 0.3.1
+  version: 0.3.2
 ---
 
 # HTML-to-PWA Pipeline
 
-**Version:** 0.3.1 — experimental draft; previous v0.2.1 independently reviewed, new HEAD NOT independently audited or installed.
+**Version:** 0.3.2 — local experimental candidate, pending independent review.
 
 ## Operating contract
 
@@ -42,7 +42,7 @@ Modes: `AUDIT_ONLY` (default for review requests), `CONVERT` (safe-copy static s
 
 ## Compatibility boundaries
 
-This v0.3.1 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
+The v0.3.2 candidate handles **single-page static HTML and directly referenced local assets**. Pass a named `.html` or `.htm` file, or a directory containing `index.html`. The generated entry is `dist/index.html`. Module rewriting, internal data fetching, bundling, API offline conversion, storage encryption, account sync and Firebase provisioning are outside its scope. Test offline behavior in a browser after the Service Worker caches the shell. Sensitive production deployment requires independent audit.
 
 ## References
 

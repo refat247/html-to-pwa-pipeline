@@ -1,7 +1,7 @@
 # HTML-to-PWA Pipeline
 
-**Version:** 0.3.1
-**Status:** Experimental Draft PR; local unit and synthetic browser CI tests available. Not merged, installed, or deployed. Independent Grok Build re-audit of v0.2.1 returned READY_FOR_OWNER_REVIEW. Owner approved P3 hardening, so v0.3.1 remains an unreviewed experimental draft pending new exact-HEAD independent audit.
+**Version:** 0.3.2
+**Status:** v0.3.2 local experimental candidate pending independent owner review. The repository retains its draft PR and owner-controlled release gates.
 
 Portable Agent Skill and Python standard-library proof-of-concept for auditing and converting eligible **static** HTML projects into PWA distributions without mutating original files.
 
@@ -20,7 +20,7 @@ The generated Service Worker uses a network-first navigation for the scoped app 
 
 ## Supported input
 
-- A single HTML file, or directory containing `index.html`.
+- Pass a single `.html` or `.htm` file by name, or a directory containing `index.html`. The generated entry is always `dist/index.html`. The source file keeps its original name and contents.
 - Local `<link>`, `<script src>`, `<img>`, `<source>`, and CSS `url(...)` references within the project root.
 - External HTTP(S) resources are detected and warned; `--strict-offline` refuses them.
 - Existing service worker/manifest, unresolved JS module imports, script fetches or suspicious sensitive input result in a manual-review blocker rather than silent modification.
@@ -47,7 +47,7 @@ The conservative prototype **refuses unreviewed SVG, CSP and dynamic JS loaders*
 - Rejects ambiguous script/DOM construction patterns for manual review. This is intentionally restrictive and **not** security certification.
 - No explicit LICENSE has been selected by the owner; public visibility does not grant reuse permission. Choose a license only after explicit owner decision.
 
-Experimental status: pending independent v0.3.1 re-audit; do not merge or deploy.
+Experimental status: the v0.3.2 candidate requires independent review before merge or deployment.
 
 ### v0.3.1 dynamic-JS boundary (2026-11-15)
 

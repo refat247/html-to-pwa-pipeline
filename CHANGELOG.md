@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.2] - 2026-11-15
+
+### Fixed
+- Build eligible named `.html` and `.htm` sources as `dist/index.html` while preserving the original file and relative asset paths. Directory input still requires `index.html`.
+
 ## [0.3.1] - 2026-11-15
 
 ### Fixed — follow-up to Grok Build v0.3.0 independent review

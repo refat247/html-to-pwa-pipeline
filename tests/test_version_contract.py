@@ -1,5 +1,6 @@
 """Reject unresolved and drifted public skill version declarations."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -29,7 +30,12 @@ class PublicVersionContractTests(unittest.TestCase):
 
     def test_readme_version_drift_fails_closed(self):
         path = self.root / 'README.md'
-        path.write_text(path.read_text().replace('**Version:** 0.3.1', '**Version:** 9.9.9', 1))
+        original = path.read_text(encoding='utf-8')
+        drifted, replacements = re.subn(r'^(\*\*Version:\*\*[ \t]+)\S+', r'\g<1>9.9.9',
+                                        original, flags=re.MULTILINE)
+        self.assertEqual(replacements, 1)
+        self.assertNotEqual(drifted, original)
+        path.write_text(drifted, encoding='utf-8')
         result = self.run_check()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Version drift', result.stderr)

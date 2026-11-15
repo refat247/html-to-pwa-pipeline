@@ -12,6 +12,7 @@ SCRIPTS=ROOT/'scripts'
 FIX=ROOT/'tests'/'fixtures'
 sys.path.insert(0,str(SCRIPTS))
 from pwa_core import inspect_input,sha256
+from build_pwa import make_png
 from verify_dist import verify
 
 class PwaPipelineTests(unittest.TestCase):
@@ -45,6 +46,90 @@ class PwaPipelineTests(unittest.TestCase):
         q=subprocess.run([sys.executable,str(SCRIPTS/'build_pwa.py'),str(FIX/'index.html'),'--out',str(dest2),'--name','Test PWA','--short-name','Test'],capture_output=True,text=True)
         self.assertEqual(q.returncode,0,q.stderr)
         self.assertEqual(a,sha256(dest2/'sw.js'))
+
+    def test_named_html_preserves_relative_assets_and_source(self):
+        source_dir = self.root / 'source'
+        asset_dir = source_dir / 'assets'
+        asset_dir.mkdir(parents=True)
+        source = source_dir / 'named guide.html'
+        source.write_text(
+            '<html><head><link rel="stylesheet" href="assets/styles.css"></head>'
+            '<body><img src="assets/figure.png"><script src="assets/app.js"></script></body></html>',
+            encoding='utf-8',
+        )
+        (asset_dir / 'styles.css').write_text('body{background:url("figure.png")}', encoding='utf-8')
+        (asset_dir / 'app.js').write_text('console.log("guide ready")', encoding='utf-8')
+        (asset_dir / 'figure.png').write_bytes(make_png(8))
+        (source_dir / 'unreferenced.txt').write_text('Keep this beside the source.', encoding='utf-8')
+        before = {path.relative_to(source_dir): sha256(path)
+                  for path in source_dir.rglob('*') if path.is_file()}
+
+        self.build(source=source, extra=['--strict-offline'])
+
+        self.assertEqual(verify(self.dest), [])
+        actual_files = {path.relative_to(self.dest).as_posix()
+                        for path in self.dest.rglob('*') if path.is_file()}
+        self.assertEqual(actual_files, {
+            'index.html', 'manifest.webmanifest', 'sw.js', 'icon-192.png', 'icon-512.png',
+            'assets/styles.css', 'assets/app.js', 'assets/figure.png',
+        })
+        for asset in asset_dir.iterdir():
+            relative = asset.relative_to(source_dir)
+            self.assertEqual(sha256(self.dest / relative), before[relative])
+        self.assertEqual(before, {path.relative_to(source_dir): sha256(path)
+                                  for path in source_dir.rglob('*') if path.is_file()})
+
+    def test_named_htm_file_accepted_but_directory_without_index_refused(self):
+        source_dir = self.root / 'source'
+        source_dir.mkdir()
+        source = source_dir / 'guide.htm'
+        source.write_bytes(b'<html>\r\n<head></head><body><h1>Guide</h1></body></html>\r\n')
+        before = sha256(source)
+        refusal = self.build(source=source_dir, expect=2)
+        self.assertIn('No index.html at source directory', refusal.stderr)
+        self.assertFalse(self.dest.exists())
+
+        self.build(source=source, extra=['--strict-offline'])
+
+        self.assertEqual(verify(self.dest), [])
+        self.assertIn('<h1>Guide</h1>', (self.dest / 'index.html').read_text(encoding='utf-8'))
+        self.assertEqual(sha256(source), before)
+        self.assertEqual(list(source_dir.iterdir()), [source])
+
+    def test_named_source_retains_refusal_gates(self):
+        source_dir = self.root / 'source'
+        source_dir.mkdir()
+        source = source_dir / 'guide.html'
+        (self.root / 'outside.js').write_text('console.log(1)', encoding='utf-8')
+        (source_dir / 'sw.js').write_text('console.log(1)', encoding='utf-8')
+        cases = {
+            'missing: missing.js': '<script src="missing.js"></script>',
+            'outside_root: ../outside.js': '<script src="../outside.js"></script>',
+            'unsafe_scheme:': '<img src="data:image/png;base64,AA==">',
+            'Generated PWA output filename collision: sw.js': '<script src="sw.js"></script>',
+            'Dynamic code or DOM construction': '<script>document.createElement("div")</script>',
+            'Sensitive-looking token or email': '<p>user@example.com</p>',
+            'External dependencies': '<script src="https://example.com/app.js"></script>',
+        }
+        for diagnostic, body in cases.items():
+            with self.subTest(diagnostic=diagnostic):
+                source.write_text(f'<html><head></head><body>{body}</body></html>', encoding='utf-8')
+                before = sha256(source)
+                refusal = self.build(source=source, extra=['--strict-offline'], expect=2)
+                self.assertIn(diagnostic, refusal.stderr)
+                self.assertEqual(sha256(source), before)
+                self.assertFalse(self.dest.exists())
+
+    def test_build_report_cannot_overwrite_named_source(self):
+        source_dir = self.root / 'source'
+        source_dir.mkdir()
+        source = source_dir / 'guide.html'
+        source.write_bytes(b'<html><head></head><body>Guide</body></html>')
+        before = sha256(source)
+        refusal = self.build(source=source, extra=['--report', str(source)], expect=2)
+        self.assertIn('Build report must not overwrite', refusal.stderr)
+        self.assertEqual(sha256(source), before)
+        self.assertFalse(self.dest.exists())
 
     def test_output_existing_refused(self):
         self.build()

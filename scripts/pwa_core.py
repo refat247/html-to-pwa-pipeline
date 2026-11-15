@@ -116,12 +116,12 @@ def source_root(path: Path):
     path = path.expanduser().resolve()
     if path.is_dir():
         root, index = path, path / 'index.html'
+        if not index.is_file() or index.resolve().name != 'index.html':
+            raise ValueError('No index.html at source directory; automatic multi-entry conversion unsupported')
     elif path.is_file() and path.suffix.lower() in ('.html', '.htm'):
         root, index = path.parent, path
     else:
         raise ValueError('Input must be a static .html file or folder containing index.html')
-    if not index.is_file():
-        raise ValueError('No index.html at source directory; automatic multi-entry conversion unsupported')
     return root.resolve(), index.resolve()
 
 
@@ -179,7 +179,7 @@ def inspect_input(path: Path) -> dict:
     if parser.remote: issues.extend(parser.remote)
     size_total = index.stat().st_size
     if size_total > MAX_ASSET_BYTES:
-        issues.append('Source index.html exceeds maximum supported asset size')
+        issues.append('Source HTML exceeds maximum supported asset size')
     has_storage = bool(re.search(r'\b(?:localStorage|sessionStorage|indexedDB)\b', html))
     cursor = 0
     while cursor < len(refs):

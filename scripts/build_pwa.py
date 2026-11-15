@@ -96,10 +96,10 @@ def build(args) -> tuple[dict,Path]:
     report_path=(args.report or out.parent/'build-report.json').expanduser().resolve()
     if report_path.is_relative_to(out):
         raise ValueError('Never publish the audit report inside dist')
+    if report_path == index or (report_path.exists() and report_path.samefile(index)):
+        raise ValueError('Build report must not overwrite the original HTML source')
     if out==root or out.is_relative_to(root):
         raise ValueError('Output must be outside input source directory to preserve input and avoid recursion')
-    if index.name!='index.html':
-        raise ValueError('Source HTML must be named index.html in this draft; do not rename files silently')
     if out.exists() and any(out.iterdir()):
         raise ValueError('Output directory must be empty or absent; no overwrites')
     out.parent.mkdir(parents=True,exist_ok=True)
