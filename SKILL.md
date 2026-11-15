@@ -2,12 +2,12 @@
 name: html-to-pwa-pipeline
 description: Audit, convert, test, package, and prepare a static HTML project as an installable Progressive Web App with privacy-aware heuristics, offline checks and version-governed delivery. Use for HTML-to-PWA conversion, mobile offline debugging, PWA packaging, Firebase Hosting preparation, origin/persistence audits, or PWA release reviews. Never deploy or merge by default.
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # HTML-to-PWA Pipeline
 
-**Version:** 0.3.0 — experimental draft; previous v0.2.1 independently reviewed, new HEAD NOT independently audited or installed.
+**Version:** 0.3.1 — experimental draft; previous v0.2.1 independently reviewed, new HEAD NOT independently audited or installed.
 
 ## Operating contract
 
@@ -42,7 +42,7 @@ Modes: `AUDIT_ONLY` (default for review requests), `CONVERT` (safe-copy static s
 
 ## Compatibility boundaries
 
-This v0.3.0 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
+This v0.3.1 converter intentionally handles **single-page static HTML and directly referenced local assets**; it does not rewrite JS modules, fetch internal data files, bundle frameworks, automatically make API content offline, encrypt storage, implement account sync or create Firebase projects. Service Worker is a generated shell cache, not proof of offline completeness. Do not use the resulting assets for sensitive production deployment before independent audit.
 
 ## References
 
@@ -59,3 +59,7 @@ Input gate is deliberately stricter than v0.1.0. Do not bypass SVG/CSP/dynamic-d
 ## v0.3.0 security boundary
 
 This converter is **not** a JavaScript security verifier. Ambiguous dynamic code construction, referenced generated filenames and third-party integrations require manual source review. `--strict-offline` remains a conservative lexical gate; it is not a proof that all future network access is impossible. License, mobile installation, hosting headers, accessibility and sensitive data protection remain separate approval gates.
+
+### v0.3.1 dynamic-JS boundary (2026-11-15)
+
+The static scanner now fails closed on `.join()` and `.append()` calls (and selected related reflective/DOM calls) even when benign. Complex JavaScript must receive a human/independent source review before conversion; neither `--strict-offline` nor a clean scan can prove absence of obfuscated network activity. Never describe this skill as privacy-safe or security-certified. Owner-approved release and device acceptance are distinct gates.

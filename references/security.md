@@ -15,3 +15,7 @@ The initial v0.1.0 review was REQUEST_CHANGES: unchanged workers on asset-only b
 ## v0.3.0 remaining risk boundary
 
 Automatic conversion rejects ambiguous runtime code construction and generated filename collisions for manual review. Lexical checks, even strict mode, are not JavaScript semantic analysis and cannot prove that a PWA never makes a request. HTTP-header CSP, physical iOS/Android acceptance and crash interruption are not verified by CLI tests. A public GitHub repository is not automatically licensed for third-party reuse; owner decides the LICENSE separately. Do not label the artifact privacy-certified.
+
+### v0.3.1 dynamic-JS boundary (2026-11-15)
+
+The static scanner now fails closed on `.join()` and `.append()` calls (and selected related reflective/DOM calls) even when benign. Complex JavaScript must receive a human/independent source review before conversion; neither `--strict-offline` nor a clean scan can prove absence of obfuscated network activity. Never describe this skill as privacy-safe or security-certified. Owner-approved release and device acceptance are distinct gates.

@@ -31,6 +31,9 @@ DYNAMIC_CODE_RE = re.compile(
     | \b(?:src|href)\s*\+\s*=
     | \bnew\s+Function\b
     | \b(?:import|export)\s*\(
+    | \bReflect\s*\.\s*(?:get|apply|construct)\s*\(
+    | \.\s*(?:append|prepend|replaceChildren|insertAdjacentElement)\s*\(
+    | \.\s*join\s*\(
     ''')
 ACTIVE_SVG_RE = re.compile(r'(?i)\.svg$')
 MAX_ASSET_BYTES = 20 * 1024 * 1024

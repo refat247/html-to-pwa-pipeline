@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-11-15
+
+### Fixed — follow-up to Grok Build v0.3.0 independent review
+- Reject joined-string and DOM insertion method call patterns (`.join()`, `.append()`, `.prepend()`, `replaceChildren`, `Reflect.get/apply/construct`) in **both inline and referenced JavaScript** before any `--strict-offline` build. This is deliberately conservative and may refuse benign apps for manual review. Synthetic regression reproduces a previously accepted joined `createElement` loader that would fetch a third-party script.
+- Remove the remaining `privacy-safe` claim from `agents/openai.yaml` interface metadata. Explicitly describe heuristic review, not privacy or security certification.
+- Add focused fail-closed regression cases, version-declaration consistency and refusal/no-dist checks.
+
+### Release boundary
+- PATCH from v0.3.0: fixes omissions in the already documented fail-closed dynamic-code policy without introducing a new supported file format or intentional API redesign.
+- Experimental draft. Original private canonical Version Manager v1.3.0 verification and independent read-only re-audit of the **new exact commit** remain mandatory. No automatic owner merge, production deployment, privacy certification or Android/iOS installation claim.
+
 ## [0.3.0] - 2026-11-14
 
 ### Changed — P3 security hardening (owner Option B)

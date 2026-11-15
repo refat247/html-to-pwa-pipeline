@@ -1,7 +1,7 @@
 # HTML-to-PWA Pipeline
 
-**Version:** 0.3.0
-**Status:** Experimental Draft PR; local unit and synthetic browser CI tests available. Not merged, installed, or deployed. Independent Grok Build re-audit of v0.2.1 returned READY_FOR_OWNER_REVIEW. Owner approved P3 hardening, so v0.3.0 remains an unreviewed experimental draft pending new exact-HEAD independent audit.
+**Version:** 0.3.1
+**Status:** Experimental Draft PR; local unit and synthetic browser CI tests available. Not merged, installed, or deployed. Independent Grok Build re-audit of v0.2.1 returned READY_FOR_OWNER_REVIEW. Owner approved P3 hardening, so v0.3.1 remains an unreviewed experimental draft pending new exact-HEAD independent audit.
 
 Portable Agent Skill and Python standard-library proof-of-concept for auditing and converting eligible **static** HTML projects into PWA distributions without mutating original files.
 
@@ -31,7 +31,7 @@ The skill does **not** automatically change GitHub, Firebase or any account. It 
 
 ## Version contract
 
-Canonical Version Manager is `refat247/medical-cdss-skills/version-manager` v1.3.0 as of 2026-11-14; historical private copy and repository policy reference v1.2.1. This authority drift is documented and must be reconciled without silently changing historical provenance. Root package declarations are SKILL.md metadata.version, `agents/openai.yaml` version, README and latest CHANGELOG heading. The canonical Version Manager v1.3.0 is in a **private** repository: the standalone public GitHub Actions token cannot check it out. Public CI therefore uses an independently written strict declaration-drift check (`scripts/check_version_contract.py`), **not the canonical CLI**. Before owner merge, the canonical `--inspect`/`--verify` must still be run in a trusted environment with authorized access; v0.2.1 canonical CLI PASS was reviewer-reported; original CLI must be rerun on v0.3.0 exact HEAD. Do not copy private source into this public repo or add a read PAT to untrusted PR jobs. Branch protection enforcement also requires owner configuration. An initial draft v0.3.0 does not count as stable v1.0.0.
+Canonical Version Manager is `refat247/medical-cdss-skills/version-manager` v1.3.0 as of 2026-11-14; historical private copy and repository policy reference v1.2.1. This authority drift is documented and must be reconciled without silently changing historical provenance. Root package declarations are SKILL.md metadata.version, `agents/openai.yaml` version, README and latest CHANGELOG heading. The canonical Version Manager v1.3.0 is in a **private** repository: the standalone public GitHub Actions token cannot check it out. Public CI therefore uses an independently written strict declaration-drift check (`scripts/check_version_contract.py`), **not the canonical CLI**. Before owner merge, the canonical `--inspect`/`--verify` must still be run in a trusted environment with authorized access; v0.2.1 canonical CLI PASS was reviewer-reported; original CLI must be rerun on v0.3.1 exact HEAD. Do not copy private source into this public repo or add a read PAT to untrusted PR jobs. Branch protection enforcement also requires owner configuration. An initial draft v0.3.1 does not count as stable v1.0.0.
 
 ## Provenance
 
@@ -47,4 +47,8 @@ The conservative prototype **refuses unreviewed SVG, CSP and dynamic JS loaders*
 - Rejects ambiguous script/DOM construction patterns for manual review. This is intentionally restrictive and **not** security certification.
 - No explicit LICENSE has been selected by the owner; public visibility does not grant reuse permission. Choose a license only after explicit owner decision.
 
-Experimental status: pending independent v0.3.0 re-audit; do not merge or deploy.
+Experimental status: pending independent v0.3.1 re-audit; do not merge or deploy.
+
+### v0.3.1 dynamic-JS boundary (2026-11-15)
+
+The static scanner now fails closed on `.join()` and `.append()` calls (and selected related reflective/DOM calls) even when benign. Complex JavaScript must receive a human/independent source review before conversion; neither `--strict-offline` nor a clean scan can prove absence of obfuscated network activity. Never describe this skill as privacy-safe or security-certified. Owner-approved release and device acceptance are distinct gates.
