@@ -1,0 +1,50 @@
+name: verify-skill-and-version
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Check original tests and converter
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          python scripts/audit_html.py tests/fixtures/index.html --report /tmp/source-audit.json
+          python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-dist --name "Synthetic Demo" --short-name Demo --strict-offline
+          python scripts/verify_dist.py /tmp/pwa-dist
+      # The canonical Version Manager lives in a private repo. GitHub's
+      # public-repository GITHUB_TOKEN cannot fetch it. Do not inject PATs into
+      # workflows that run pull-request code or publish its private source.
+      # Independent public drift check is a CI safety net; authorized canonical
+      # CLI inspect/verify remains a distinct PRE-MERGE requirement.
+      - name: Public SemVer drift check (canonical CLI remains a review gate)
+        run: |
+          python scripts/check_version_contract.py . --inspect
+          python scripts/check_version_contract.py . --verify
+  chromium-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install isolated Chromium test dependency
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Build disposable synthetic app and test real browser origin
+        run: |
+          python scripts/build_pwa.py tests/fixtures/index.html --out /tmp/pwa-smoke --name "Synthetic Demo" --short-name Demo --strict-offline
+          (cd /tmp/pwa-smoke && python -m http.server 8197 --bind 127.0.0.1 >/tmp/pwa-http.log 2>&1 &)
+          python scripts/browser_smoke.py http://localhost:8197/ --dist /tmp/pwa-smoke
+          python scripts/browser_smoke.py http://127.0.0.1:8197/
